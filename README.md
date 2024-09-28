@@ -53,7 +53,7 @@ An advanced auto-clicker application that records and plays back mouse and keybo
 ## Installation
 ### Clone the Repository:
 ```bash
-git clone https://github.com/yourusername/autoclicker.git
+git clone https://github.com/lordryn/macrout.git
 cd autoclicker
 ```
 
