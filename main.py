@@ -16,6 +16,7 @@ from pynput import keyboard
 from pynput.mouse import Listener as MouseListener
 from pynput.keyboard import Listener as KeyboardListener
 
+
 class EditDialog(QDialog):
     def __init__(self, event_type, action, x, y, button_key, delay):
         super().__init__()
@@ -57,7 +58,8 @@ class EditDialog(QDialog):
             self.yEdit.text(), self.buttonKeyEdit.text(), self.delayEdit.text()
         )
 
-class MacroutApp(QMainWindow):
+
+class AutoClickerApp(QMainWindow):
     def __init__(self):
         super().__init__()
         self.initUI()
@@ -66,7 +68,7 @@ class MacroutApp(QMainWindow):
         self.show()
 
     def initUI(self):
-        self.setWindowTitle('Macrout')
+        self.setWindowTitle('AutoClicker')
         self.setWindowFlags(Qt.WindowStaysOnTopHint)
         self.setWindowOpacity(0.9)  # Adjusted for better visibility
 
@@ -80,9 +82,18 @@ class MacroutApp(QMainWindow):
         self.table.setHorizontalHeaderLabels(['Type', 'Action', 'X', 'Y', 'Button/Key', 'Delay'])
         self.layout.addWidget(self.table)
 
-        # Mouse position label
+        # Labels layout
+        labelsLayout = QHBoxLayout()
         self.mousePositionLabel = QLabel("Mouse Position: X=0, Y=0")
-        self.layout.addWidget(self.mousePositionLabel)
+        labelsLayout.addWidget(self.mousePositionLabel)
+
+        # Add stretch to push the next label to the right
+        labelsLayout.addStretch()
+
+        self.totalTimeLabel = QLabel("Total Estimated Time: 0.00s")
+        labelsLayout.addWidget(self.totalTimeLabel)
+
+        self.layout.addLayout(labelsLayout)
 
         # Loop and statistics
         loopStatsLayout = QHBoxLayout()
@@ -122,7 +133,7 @@ class MacroutApp(QMainWindow):
         self.stopAction.triggered.connect(self.stopPlayback)
         self.toolbar.addAction(self.stopAction)
 
-        self.clearAction = QAction(QIcon(), 'Clear Events', self)
+        self.clearAction = QAction(QIcon(), 'Clear Events')
         self.clearAction.triggered.connect(self.clearEvents)
         self.toolbar.addAction(self.clearAction)
 
@@ -180,6 +191,9 @@ class MacroutApp(QMainWindow):
         self.mouse_position_timer = QtCore.QTimer()
         self.mouse_position_timer.timeout.connect(self.updateMousePosition)
         self.mouse_position_timer.start(100)
+
+        # Connect the itemChanged signal
+        self.table.itemChanged.connect(self.on_table_item_changed)
 
         # Initialize variables
         self.playback_active = False
@@ -268,6 +282,9 @@ class MacroutApp(QMainWindow):
             delay = current_time - self.last_event_time
         self.last_event_time = current_time
 
+        # Block signals to prevent recursive calls
+        self.table.blockSignals(True)
+
         row = self.table.rowCount()
         self.table.insertRow(row)
         self.table.setItem(row, 0, QTableWidgetItem(event_type))
@@ -276,6 +293,11 @@ class MacroutApp(QMainWindow):
         self.table.setItem(row, 3, QTableWidgetItem(str(y)))
         self.table.setItem(row, 4, QTableWidgetItem(button_key))
         self.table.setItem(row, 5, QTableWidgetItem(f"{delay:.4f}"))
+
+        # Unblock signals after modifications
+        self.table.blockSignals(False)
+
+        self.update_total_time_label()
 
     def playbackClicks(self):
         self.playback_active = True
@@ -327,13 +349,19 @@ class MacroutApp(QMainWindow):
                 button_key = self.table.item(i, 4).text()
                 delay_text = self.table.item(i, 5).text()
 
-                delay = float(delay_text)
+                try:
+                    delay = float(delay_text)
+                except ValueError:
+                    delay = 0  # Default to no delay if invalid
                 time.sleep(delay)
 
                 if event_type == 'Mouse':
                     if x_text and y_text:
-                        x = int(float(x_text))
-                        y = int(float(y_text))
+                        try:
+                            x = int(float(x_text))
+                            y = int(float(y_text))
+                        except ValueError:
+                            x, y = pyautogui.position()
                     else:
                         x, y = pyautogui.position()
                     if action == 'press':
@@ -342,12 +370,17 @@ class MacroutApp(QMainWindow):
                     elif action == 'release':
                         pyautogui.moveTo(x, y)
                         pyautogui.mouseUp(button=button_key)
+                    elif action == 'click':
+                        pyautogui.moveTo(x, y)
+                        pyautogui.click(button=button_key)
                 elif event_type == 'Key':
                     key = button_key
                     if action == 'press':
                         pyautogui.keyDown(key)
                     elif action == 'release':
                         pyautogui.keyUp(key)
+                    elif action == 'click':
+                        pyautogui.press(key)
                 i += 1
 
             loops_completed += 1
@@ -380,8 +413,11 @@ class MacroutApp(QMainWindow):
         total_time = 0.0
         for i in range(self.table.rowCount()):
             delay_text = self.table.item(i, 5).text()
-            delay = float(delay_text)
-            total_time += delay
+            try:
+                delay = float(delay_text)
+                total_time += delay
+            except ValueError:
+                pass  # Ignore invalid entries
         return total_time
 
     def startPlayback(self):
@@ -397,6 +433,9 @@ class MacroutApp(QMainWindow):
         self.statusBar.showMessage('Playback stopped')
 
     def addClick(self):
+        # Block signals to prevent recursive calls
+        self.table.blockSignals(True)
+
         row = self.table.rowCount()
         self.table.insertRow(row)
         self.table.setItem(row, 0, QTableWidgetItem('Mouse'))
@@ -406,14 +445,35 @@ class MacroutApp(QMainWindow):
         self.table.setItem(row, 4, QTableWidgetItem('left'))
         self.table.setItem(row, 5, QTableWidgetItem('1.00'))
 
+        # Unblock signals after modifications
+        self.table.blockSignals(False)
+
+        self.update_total_time_label()
+
     def deleteClick(self):
         currentRow = self.table.currentRow()
         if currentRow > -1:
+            # Block signals to prevent recursive calls
+            self.table.blockSignals(True)
+
             self.table.removeRow(currentRow)
 
+            # Unblock signals after modifications
+            self.table.blockSignals(False)
+
+            self.update_total_time_label()
+
     def clearEvents(self):
+        # Block signals to prevent recursive calls
+        self.table.blockSignals(True)
+
         self.table.setRowCount(0)
         self.statusBar.showMessage('Events cleared')
+
+        # Unblock signals after modifications
+        self.table.blockSignals(False)
+
+        self.update_total_time_label()
 
     def editClick(self):
         currentRow = self.table.currentRow()
@@ -428,12 +488,21 @@ class MacroutApp(QMainWindow):
             dialog = EditDialog(event_type, action, x, y, button_key, delay)
             if dialog.exec():
                 event_type, action, x, y, button_key, delay = dialog.getValues()
+
+                # Block signals to prevent recursive calls
+                self.table.blockSignals(True)
+
                 self.table.setItem(currentRow, 0, QTableWidgetItem(event_type))
                 self.table.setItem(currentRow, 1, QTableWidgetItem(action))
                 self.table.setItem(currentRow, 2, QTableWidgetItem(x))
                 self.table.setItem(currentRow, 3, QTableWidgetItem(y))
                 self.table.setItem(currentRow, 4, QTableWidgetItem(button_key))
                 self.table.setItem(currentRow, 5, QTableWidgetItem(delay))
+
+                # Unblock signals after modifications
+                self.table.blockSignals(False)
+
+                self.update_total_time_label()
 
     def saveClicks(self):
         options = QFileDialog.Options()
@@ -457,9 +526,12 @@ class MacroutApp(QMainWindow):
                     "button_key": button_key,
                     "delay": delay
                 })
-            with open(fileName, 'w') as file:
-                json.dump(clicks, file, indent=4)
-            self.statusBar.showMessage('Events saved')
+            try:
+                with open(fileName, 'w') as file:
+                    json.dump(clicks, file, indent=4)
+                self.statusBar.showMessage('Events saved')
+            except Exception as e:
+                QMessageBox.critical(self, 'Error', f'Failed to save events: {str(e)}')
 
     def loadClicks(self):
         options = QFileDialog.Options()
@@ -467,19 +539,55 @@ class MacroutApp(QMainWindow):
             self, "Load Events", "", "JSON Files (*.json);;All Files (*)", options=options
         )
         if fileName:
-            with open(fileName, 'r') as file:
-                clicks = json.load(file)
-                self.table.setRowCount(0)  # Clear the table before loading new clicks
-                for click in clicks:
-                    row = self.table.rowCount()
-                    self.table.insertRow(row)
-                    self.table.setItem(row, 0, QTableWidgetItem(click['type']))
-                    self.table.setItem(row, 1, QTableWidgetItem(click['action']))
-                    self.table.setItem(row, 2, QTableWidgetItem(click['x']))
-                    self.table.setItem(row, 3, QTableWidgetItem(click['y']))
-                    self.table.setItem(row, 4, QTableWidgetItem(click['button_key']))
-                    self.table.setItem(row, 5, QTableWidgetItem(click['delay']))
-            self.statusBar.showMessage('Events loaded')
+            try:
+                with open(fileName, 'r') as file:
+                    clicks = json.load(file)
+                    self.table.setRowCount(0)  # Clear the table before loading new clicks
+
+                    # Block signals to prevent recursive calls
+                    self.table.blockSignals(True)
+
+                    for click in clicks:
+                        # Validate click data
+                        event_type = click.get('type', 'Mouse')
+                        action = click.get('action', 'click')
+                        x = click.get('x', '0')
+                        y = click.get('y', '0')
+                        button_key = click.get('button_key', 'left')
+                        delay = click.get('delay', '0.00')
+
+                        # Validate numerical values
+                        try:
+                            x = float(x)
+                        except ValueError:
+                            x = 0.0
+                        try:
+                            y = float(y)
+                        except ValueError:
+                            y = 0.0
+                        try:
+                            delay = float(delay)
+                        except ValueError:
+                            delay = 0.0
+
+                        row = self.table.rowCount()
+                        self.table.insertRow(row)
+                        self.table.setItem(row, 0, QTableWidgetItem(event_type))
+                        self.table.setItem(row, 1, QTableWidgetItem(action))
+                        self.table.setItem(row, 2, QTableWidgetItem(str(x)))
+                        self.table.setItem(row, 3, QTableWidgetItem(str(y)))
+                        self.table.setItem(row, 4, QTableWidgetItem(button_key))
+                        self.table.setItem(row, 5, QTableWidgetItem(f"{delay:.4f}"))
+
+                    # Unblock signals after modifications
+                    self.table.blockSignals(False)
+
+                self.statusBar.showMessage('Events loaded')
+                self.update_total_time_label()
+            except Exception as e:
+                QMessageBox.critical(self, 'Error', f'Failed to load events: {str(e)}')
+                # Ensure signals are unblocked even if an error occurs
+                self.table.blockSignals(False)
 
     def setHotkeys(self):
         # Dialog to set hotkeys
@@ -516,6 +624,25 @@ class MacroutApp(QMainWindow):
         dialog.accept()
         self.statusBar.showMessage('Hotkeys updated')
 
+    def on_table_item_changed(self, item):
+        # Only read data; do not modify the table to avoid recursive calls
+        self.update_total_time_label()
+
+    def calculate_total_estimated_time(self):
+        total_time = 0.0
+        for i in range(self.table.rowCount()):
+            delay_text = self.table.item(i, 5).text()
+            try:
+                delay = float(delay_text)
+                total_time += delay
+            except ValueError:
+                pass  # Ignore invalid entries
+        return total_time
+
+    def update_total_time_label(self):
+        total_time = self.calculate_total_estimated_time()
+        self.totalTimeLabel.setText(f"Total Estimated Time: {total_time:.2f}s")
+
     def closeEvent(self, event):
         # Stop listeners when application closes
         self.mouse_listener.stop()
@@ -525,7 +652,8 @@ class MacroutApp(QMainWindow):
         self.keyboard_listener.join()
         event.accept()
 
+
 if __name__ == '__main__':
     app = QApplication(sys.argv)
-    ex = MacroutApp()
+    ex = AutoClickerApp()
     sys.exit(app.exec_())
