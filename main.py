@@ -6,9 +6,9 @@ import json
 from PyQt5.QtWidgets import (
     QApplication, QWidget, QVBoxLayout, QPushButton, QTableWidget, QTableWidgetItem,
     QDialog, QLineEdit, QLabel, QDialogButtonBox, QFileDialog, QCheckBox,
-    QMenuBar, QAction, QToolBar, QStatusBar, QHBoxLayout, QMainWindow, QMessageBox, QSpinBox, QComboBox
+    QMenuBar, QAction, QToolBar, QStatusBar, QHBoxLayout, QMainWindow, QMessageBox, QSpinBox, QComboBox, QSlider
 )
-from PyQt5.QtGui import QIcon
+from PyQt5.QtGui import QIcon, QColor  # Add QColor for row highlighting
 from PyQt5.QtCore import Qt, QTimer
 from PyQt5 import QtCore
 
@@ -52,6 +52,8 @@ class EditDialog(QDialog):
         self.buttons.rejected.connect(self.reject)
         self.layout.addWidget(self.buttons)
 
+
+
     def getValues(self):
         return (
             self.typeEdit.text(), self.actionEdit.text(), self.xEdit.text(),
@@ -66,6 +68,8 @@ class AutoClickerApp(QMainWindow):
         self.initListeners()  # Initialize listeners once
         self.initHotkeys()    # Initialize hotkeys
         self.show()
+        self.start_row = 0  # Initialize the active row
+
 
     def initUI(self):
         self.setWindowTitle('AutoClicker')
@@ -124,6 +128,11 @@ class AutoClickerApp(QMainWindow):
         self.recordAction = QAction(QIcon(), 'Start Recording', self)
         self.recordAction.triggered.connect(self.toggleRecording)
         self.toolbar.addAction(self.recordAction)
+
+        # In initUI, where other buttons are set up
+        self.setStartButton = QAction(QIcon(), 'Set Start Line', self)
+        self.setStartButton.triggered.connect(self.setStartPosition)
+        self.toolbar.addAction(self.setStartButton)
 
         self.playAction = QAction(QIcon(), 'Start Playback', self)
         self.playAction.triggered.connect(self.startPlayback)
@@ -187,6 +196,18 @@ class AutoClickerApp(QMainWindow):
         hotkeyAction.triggered.connect(self.setHotkeys)
         settingsMenu.addAction(hotkeyAction)
 
+        self.narrowViewAction = QAction('Narrow View', self, checkable=True)
+        self.narrowViewAction.triggered.connect(self.toggleTableView)
+        settingsMenu.addAction(self.narrowViewAction)
+
+        self.hideReleasesAction = QAction('Hide Releases', self, checkable=True)
+        self.hideReleasesAction.triggered.connect(self.toggleReleaseVisibility)
+        settingsMenu.addAction(self.hideReleasesAction)
+
+        self.adjustTransparencyAction = QAction('Adjust Transparency', self)
+        self.adjustTransparencyAction.triggered.connect(self.showTransparencyDialog)
+        settingsMenu.addAction(self.adjustTransparencyAction)
+
         # Mouse position tracking
         self.mouse_position_timer = QtCore.QTimer()
         self.mouse_position_timer.timeout.connect(self.updateMousePosition)
@@ -202,6 +223,57 @@ class AutoClickerApp(QMainWindow):
         self.last_event_time = None
         self.default_hotkeys()
         self.loop_countdown_timer = None
+
+    def showTransparencyDialog(self):
+        dialog = QDialog(self)
+        dialog.setWindowTitle("Adjust Transparency")
+
+        layout = QVBoxLayout(dialog)
+        label = QLabel("Transparency:")
+        layout.addWidget(label)
+
+        # Create a slider for transparency (10% to 100%)
+        slider = QSlider(Qt.Horizontal)
+        slider.setRange(10, 100)  # Transparency range from 10% to 100%
+        slider.setValue(int(self.windowOpacity() * 100))  # Set initial value to current opacity
+        slider.valueChanged.connect(self.adjustWindowOpacity)
+        layout.addWidget(slider)
+
+        dialog.setLayout(layout)
+        dialog.exec_()  # Show dialog as modal
+
+    # Define a separate method to adjust the window opacity
+    def adjustWindowOpacity(self, value):
+        self.setWindowOpacity(value / 100)
+
+    def toggleTableView(self):
+        if self.narrowViewAction.isChecked():
+            # Limit table height to approximately show 3 rows for a "narrow" view
+            self.table.setFixedHeight(self.table.rowHeight(0) * 2 + self.table.horizontalHeader().height())
+            self.statusBar.showMessage("Narrow View enabled")
+        else:
+            # Reset the table height to its full content size
+            self.table.setFixedHeight(self.table.sizeHint().height())
+            self.statusBar.showMessage("Full View enabled")
+
+    def toggleReleaseVisibility(self):
+        hide_releases = self.hideReleasesAction.isChecked()
+        for row in range(self.table.rowCount()):
+            action_item = self.table.item(row, 1)  # Column 1 is "Action"
+            if action_item and action_item.text() == 'release':
+                self.table.setRowHidden(row, hide_releases)
+
+    def setStartPosition(self):
+        currentRow = self.table.currentRow()
+        if currentRow != -1:
+            self.start_row = currentRow
+            self.statusBar.showMessage(f'Starting playback from line {self.start_row + 1}')
+        else:
+            self.statusBar.showMessage('Please select a row to set as the start position')
+
+    def setActiveRow(self, row):
+            self.start_row = row
+            self.statusBar.showMessage(f'Starting from row {row}')
 
     def default_hotkeys(self):
         # Default hotkeys
@@ -226,9 +298,11 @@ class AutoClickerApp(QMainWindow):
 
     def togglePlayback(self):
         if self.playback_active:
-            self.stopPlayback()
+            self.playback_active = False  # Acts as a pause
+            self.statusBar.showMessage('Playback paused')
         else:
-            self.startPlayback()
+            self.playback_active = True
+            self.startPlayback()  # Resumes playback
 
     def updateMousePosition(self):
         x, y = pyautogui.position()
@@ -273,6 +347,17 @@ class AutoClickerApp(QMainWindow):
             except AttributeError:
                 key_str = str(key).replace('Key.', '')
             self.record_event('Key', 'release', '', '', key_str)
+
+    def calculate_single_loop_time(self):
+        total_time = 0.0
+        for i in range(self.table.rowCount()):
+            delay_text = self.table.item(i, 5).text()
+            try:
+                delay = float(delay_text)
+                total_time += delay
+            except ValueError:
+                pass  # Ignore invalid entries
+        return total_time
 
     def record_event(self, event_type, action, x, y, button_key):
         current_time = time.time()
@@ -329,6 +414,10 @@ class AutoClickerApp(QMainWindow):
         else:
             self.remaining_loops = 1
 
+        first_loop = True  # Track if it's the first loop
+
+
+
         while self.playback_active:
             # Update countdown
             if loop_enabled and loop_mode == 'Number of Loops':
@@ -339,9 +428,26 @@ class AutoClickerApp(QMainWindow):
                 if time_left <= 0:
                     break
 
-            i = 0
+            # Use start_row for the first loop only; reset it to 0 afterward
+            i = self.start_row if first_loop else 0
+
             total_events = self.table.rowCount()
             while i < total_events and self.playback_active:
+                # Clear previous row highlight to prevent overlap
+                for row in range(total_events):
+                    for j in range(self.table.columnCount()):
+                        self.table.item(row, j).setBackground(QColor('white'))
+
+                # Highlight current row
+                for j in range(self.table.columnCount()):
+                    self.table.item(i, j).setBackground(QColor('lightblue'))
+
+                # Scroll to the highlighted item
+                self.table.scrollToItem(self.table.item(i, 0), QTableWidget.PositionAtCenter)
+                QApplication.processEvents()  # Ensure UI updates to show the highlighted row
+
+
+                # Execute the action on the current row
                 event_type = self.table.item(i, 0).text()
                 action = self.table.item(i, 1).text()
                 x_text = self.table.item(i, 2).text()
@@ -355,6 +461,7 @@ class AutoClickerApp(QMainWindow):
                     delay = 0  # Default to no delay if invalid
                 time.sleep(delay)
 
+                # Perform the mouse or key action
                 if event_type == 'Mouse':
                     if x_text and y_text:
                         try:
@@ -381,9 +488,18 @@ class AutoClickerApp(QMainWindow):
                         pyautogui.keyUp(key)
                     elif action == 'click':
                         pyautogui.press(key)
+
+                # Wait briefly to give the UI time to reset before next action
+                QApplication.processEvents()  # Refresh UI after each iteration
+                time.sleep(0.05)  # Small delay to ensure visibility
+
                 i += 1
 
             loops_completed += 1
+
+            # Reset start_row to 0 after the first loop completes
+            if first_loop:
+                first_loop = False
 
             if loop_enabled:
                 if loop_mode == 'Number of Loops':
@@ -408,17 +524,6 @@ class AutoClickerApp(QMainWindow):
         self.statusBar.showMessage(stats_message)
         self.countdownLabel.setText('Countdown: N/A')
         self.playback_active = False
-
-    def calculate_single_loop_time(self):
-        total_time = 0.0
-        for i in range(self.table.rowCount()):
-            delay_text = self.table.item(i, 5).text()
-            try:
-                delay = float(delay_text)
-                total_time += delay
-            except ValueError:
-                pass  # Ignore invalid entries
-        return total_time
 
     def startPlayback(self):
         if self.table.rowCount() == 0:
