@@ -208,6 +208,10 @@ class AutoClickerApp(QMainWindow):
         self.adjustTransparencyAction.triggered.connect(self.showTransparencyDialog)
         settingsMenu.addAction(self.adjustTransparencyAction)
 
+        self.syncCoordsAction = QAction('Sync Coordinates', self, checkable=True)
+        self.syncCoordsAction.setChecked(True)  # Default to enabled
+        settingsMenu.addAction(self.syncCoordsAction)
+
         # Mouse position tracking
         self.mouse_position_timer = QtCore.QTimer()
         self.mouse_position_timer.timeout.connect(self.updateMousePosition)
@@ -223,6 +227,8 @@ class AutoClickerApp(QMainWindow):
         self.last_event_time = None
         self.default_hotkeys()
         self.loop_countdown_timer = None
+
+        self.table.itemChanged.connect(self.updateReleaseCoords)
 
     def showTransparencyDialog(self):
         dialog = QDialog(self)
@@ -743,6 +749,28 @@ class AutoClickerApp(QMainWindow):
             except ValueError:
                 pass  # Ignore invalid entries
         return total_time
+
+    def updateReleaseCoords(self, item):
+        # Check if the "Sync Coordinates" feature is enabled
+        if not self.syncCoordsAction.isChecked():
+            return  # Exit if synchronization is disabled
+
+        row = item.row()
+        col = item.column()
+
+        # Check if the edited row is a "press" action and the edited column is a coordinate
+        if self.table.item(row, 0).text() == "Mouse" and self.table.item(row, 1).text() == "press" and col in [2, 3]:
+            # Get the updated coordinates
+            x_text = self.table.item(row, 2).text()
+            y_text = self.table.item(row, 3).text()
+
+            # Find the corresponding "release" action in subsequent rows
+            for i in range(row + 1, self.table.rowCount()):
+                if self.table.item(i, 0).text() == "Mouse" and self.table.item(i, 1).text() == "release":
+                    # Update the release action's coordinates
+                    self.table.item(i, 2).setText(x_text)
+                    self.table.item(i, 3).setText(y_text)
+                    break  # Stop after finding the first matching release action
 
     def update_total_time_label(self):
         total_time = self.calculate_total_estimated_time()
