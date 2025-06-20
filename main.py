@@ -6,7 +6,8 @@ import json
 from PyQt5.QtWidgets import (
     QApplication, QWidget, QVBoxLayout, QPushButton, QTableWidget, QTableWidgetItem,
     QDialog, QLineEdit, QLabel, QDialogButtonBox, QFileDialog, QCheckBox,
-    QMenuBar, QAction, QToolBar, QStatusBar, QHBoxLayout, QMainWindow, QMessageBox, QSpinBox, QComboBox, QSlider
+    QMenuBar, QAction, QToolBar, QStatusBar, QHBoxLayout, QMainWindow, QMessageBox, QSpinBox, QComboBox, QSlider,
+    QInputDialog
 )
 from PyQt5.QtGui import QIcon, QColor  # Add QColor for row highlighting
 from PyQt5.QtCore import Qt, QTimer
@@ -191,6 +192,10 @@ class AutoClickerApp(QMainWindow):
 
         # Settings menu
         settingsMenu = self.menuBar.addMenu('Settings')
+
+        self.insertFlagAction = QAction('Insert Flag', self)
+        self.insertFlagAction.triggered.connect(self.insertFlagRow)
+        settingsMenu.addAction(self.insertFlagAction)
 
         hotkeyAction = QAction('Set Hotkeys', self)
         hotkeyAction.triggered.connect(self.setHotkeys)
@@ -452,6 +457,10 @@ class AutoClickerApp(QMainWindow):
                 self.table.scrollToItem(self.table.item(i, 0), QTableWidget.PositionAtCenter)
                 QApplication.processEvents()  # Ensure UI updates to show the highlighted row
 
+                # Skip flag rows (identified by "Flag:" text)
+                if self.table.item(i, 0) and "Flag:" in self.table.item(i, 0).text():
+                    i += 1
+                    continue
 
                 # Execute the action on the current row
                 event_type = self.table.item(i, 0).text()
@@ -772,6 +781,23 @@ class AutoClickerApp(QMainWindow):
                     self.table.item(i, 3).setText(y_text)
                     break  # Stop after finding the first matching release action
 
+    def insertFlagRow(self):
+        current_row = self.table.currentRow()
+        insert_row = current_row + 1 if current_row != -1 else self.table.rowCount()
+
+        # Insert the flag row
+        self.table.insertRow(insert_row)
+
+        flag_item = QTableWidgetItem("Flag: Description Here")
+        flag_item.setFlags(flag_item.flags() & ~Qt.ItemIsEditable)
+        flag_item.setForeground(QColor("green"))
+        font = flag_item.font()
+        font.setItalic(True)
+        flag_item.setFont(font)
+
+        self.table.setItem(insert_row, 0, flag_item)
+        self.table.setSpan(insert_row, 0, 1, self.table.columnCount())
+
     def update_total_time_label(self):
         total_time = self.calculate_total_estimated_time()
         self.totalTimeLabel.setText(f"Total Estimated Time: {total_time:.2f}s")
@@ -789,4 +815,7 @@ class AutoClickerApp(QMainWindow):
 if __name__ == '__main__':
     app = QApplication(sys.argv)
     ex = AutoClickerApp()
-    sys.exit(app.exec_())
+    try:
+        sys.exit(app.exec_())
+    except Exception as e:
+        print(f"An error occurred: {e}")
