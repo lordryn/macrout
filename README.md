@@ -1,45 +1,62 @@
-# Macrout 2.0: The Automation IDE
+# Macrout 2.1: The Automation IDE
 
 Macrout is a powerful, open-source automation tool designed to be more than just a "tape recorder" for your mouse. It is an **Automation Non-Linear Editor (NLE)** that treats input events as editable objects, allowing for precise tuning, logic adjustment, and robust playback.
 
-Built with **Python** and **PyQt5**, Macrout 2.0 introduces a fully Object-Oriented backend, separating the recording logic from the playback engine for maximum stability and extensibility.
+Built with **Python** and **PyQt5**, Macrout 2.1 features a modular Object-Oriented architecture, separating the recording logic from the playback engine for maximum stability.
 
 ---
 
-## ✨ Key Features
+## ✨ New in v2.1
+
+### 📑 Organization Flags
+
+Long macros are hard to read. Macrout 2.1 introduces **Flags**—non-executable comment rows that span the entire table. Use them to label sections of your macro (e.g., *"--- BOSS PHASE ---"* or *"--- INVENTORY SORT ---"*).
+
+### 🖱️ Safe Drag & Drop
+
+Reordering events is now safer and more precise. Dragging rows triggers a context menu asking whether to **Insert Above** or **Insert Below** the target, preventing accidental overwrites or UI glitches common in standard list widgets.
+
+### 📋 Context Power Tools
+
+A robust right-click menu provides full IDE-like control:
+
+* **Cut / Copy / Paste** – Move events reliably between sections.
+* **Duplicate** – Quickly clone complex event chains.
+* **Insert Wait** – Manually add pause events without recording them.
+
+---
+
+## 🔑 Core Features
 
 ### 🧠 Intelligent Event Engine
 
 Unlike basic clickers that play back a flat recording, Macrout treats every action as a discrete object.
 
-- **Atomic Precision**  
+* **Atomic Precision**
   Clicks are split into `MouseDown` and `MouseUp` events, allowing hold durations to be tuned down to the millisecond.
 
-- **Smart Delete**  
-  Automatically detects and removes paired events. Deleting a "Press" can also remove the matching "Release" to prevent stuck keys.
+* **Smart Delete**
+  Deleting a `Press` event automatically detects and removes the matching `Release` to prevent stuck keys.
 
 ---
 
 ### 👁️ Visual Execution Tracking
 
-- **Live Highlighting**  
-  The UI highlights the exact line of execution in real time, making complex loops easy to debug.
+* **Live Highlighting**
+  The UI highlights the exact line of execution in real time, functioning as a visual debugger.
 
-- **Live Dashboard**  
+* **Live Dashboard**
   Real-time tracking of mouse coordinates, loop counts, and estimated total runtime.
 
 ---
 
 ### 🛠️ Editor Tools
 
-- **Sync Coordinates**  
-  Editing the X/Y position of a `MouseDown` event automatically updates the matching `MouseUp` event further down the timeline.
+* **Sync Coordinates**
+  Editing the X/Y position of a `MouseDown` automatically updates the matching `MouseUp`.
 
-- **Humanization (Variance)**  
-  Built-in jitter support adds random pixel offsets to clicks to simulate human behavior and reduce bot detection.
-
-- **Global Hotkeys**  
-  Start/Stop recording and playback from any application using customizable keyboard shortcuts.
+* **Humanization (Variance)**
+  Built-in jitter support adds random pixel offsets to clicks to simulate human behavior.
 
 ---
 
@@ -78,16 +95,16 @@ python main.py
 
 ---
 
-### 2. Editing
+### 2. Editing & Organizing
 
-- **Modify Events**  
-  Double-click any cell in the table to edit coordinates, delays, or variance values.
+* **Reorder**
+  Drag rows to a new position and select **Insert Above** or **Insert Below** from the popup menu.
 
-- **Sync Mode**  
-  Ensure **Sync Coordinates** is enabled in the Settings menu. Editing a mouse press position will automatically update the corresponding release.
+* **Add Comments (Flags)**
+  Right-click and select **Insert Flag**. The row turns green; type your note in the first column.
 
-- **Delete**  
-  Select one or more rows and click **Delete**. With **Smart Delete** enabled, paired events are removed together.
+* **Modify**
+  Double-click any editable cell (coordinates, delay, variance) to make changes. The **Type** column is locked for safety on standard events.
 
 ---
 
@@ -95,24 +112,20 @@ python main.py
 
 1. Set the number of **Loops** (`0` for infinite).
 2. Click **Play** or press `<Ctrl> + <Alt> + P`.
-3. The table locks and visually tracks execution.
-4. Move the mouse to the **top-left corner of the screen** to trigger the fail-safe emergency stop.
+3. The interface locks to prevent editing during execution.
+4. **Emergency Stop:** Move the mouse to the top-left corner of the screen to trigger the fail-safe.
 
 ---
 
-## 🗺️ Roadmap & Vision
+## 🗺️ Roadmap
 
-Macrout 2.0 is the foundation for a broader vision of **"Automation as Code."** Planned future enhancements include:
+Macrout is evolving from a script into a platform. Planned enhancements include:
 
-- **🏷️ Event Tagging**  
-  Rename events (e.g., "Click Left" → "Open Inventory") for readability and maintainability.
-
-- **📸 Visual Thumbnails**  
+* **📸 Visual Thumbnails**
   Capture small screenshots around the cursor during recording to display as event thumbnails.
 
-- **🖱️ Context Menus**  
-  Right-click actions such as *Duplicate Row*, *Randomize Delay*, or *Insert Wait*.
+* **💾 Project Files**
+  Save and load macros with relative paths and metadata descriptions.
 
-- **⇄ Drag & Drop**  
-  Full drag-and-drop timeline reordering (currently experimental).
-
+* **🖼️ Image Recognition**
+  Conditional logic such as *"Wait until Image X appears on screen"*.
