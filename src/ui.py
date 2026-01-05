@@ -142,6 +142,14 @@ class MainWindow(QMainWindow):
         trans_action.triggered.connect(self.show_transparency_dialog)
         settings_menu.addAction(trans_action)
 
+        # --- NEW: Always on Top ---
+        self.act_always_top = QAction('Always on Top', self, checkable=True)
+        self.act_always_top.setChecked(False)  # Default off, or True if you prefer
+        self.act_always_top.triggered.connect(self.toggle_always_on_top)
+        settings_menu.addAction(self.act_always_top)
+        # --------------------------
+
+
     def _setup_top_stats(self):
         stats_group = QGroupBox("Live Stats")
         stats_layout = QHBoxLayout()
@@ -243,6 +251,20 @@ class MainWindow(QMainWindow):
     def toggle_sync(self):
         self.sync_coords = self.act_sync.isChecked()
         self.status_label.setText(f"Sync Coordinates: {self.sync_coords}")
+
+    def toggle_always_on_top(self):
+        should_be_top = self.act_always_top.isChecked()
+        current_flags = self.windowFlags()
+
+        if should_be_top:
+            self.setWindowFlags(current_flags | Qt.WindowStaysOnTopHint)
+            self.status_label.setText("Always on Top: ON")
+        else:
+            self.setWindowFlags(current_flags & ~Qt.WindowStaysOnTopHint)
+            self.status_label.setText("Always on Top: OFF")
+
+        # IMPORTANT: changing flags hides the window, so we must show it again
+        self.show()
 
     def toggle_smart_delete(self):
         self.smart_delete = self.act_smart_del.isChecked()
