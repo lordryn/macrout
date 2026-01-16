@@ -3,6 +3,7 @@
 Macrout is a powerful, open-source automation tool designed to be more than just a "tape recorder" for your mouse. It is an **Automation Non-Linear Editor (NLE)** that treats input events as editable objects, allowing for precise tuning, logic adjustment, and robust playback.
 
 Built with **Python** and **PyQt5**, Macrout 2.1 features a modular Object-Oriented architecture, separating the recording logic from the playback engine for maximum stability.
+![Recording 2026-01-15 215240](https://github.com/user-attachments/assets/daf2e819-280e-4518-a7e4-a7c8853563f3)
 
 ---
 
