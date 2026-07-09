@@ -54,8 +54,8 @@ class EventTable(QTableWidget):
 
     def __init__(self, parent=None):
         super().__init__(parent)
-        self.setColumnCount(7)
-        self.setHorizontalHeaderLabels(["Type", "Action", "X", "Y", "Button/Key", "Delay", "Variance"])
+        self.setColumnCount(8)
+        self.setHorizontalHeaderLabels(["Type", "Action", "X", "Y", "Button/Key", "Delay", "Variance", "Delay Variance"])
         self.horizontalHeader().setSectionResizeMode(QHeaderView.Stretch)
         self.setSelectionBehavior(QAbstractItemView.SelectRows)
         self.setSelectionMode(QAbstractItemView.ExtendedSelection)
@@ -590,6 +590,8 @@ class MainWindow(QMainWindow):
                 self._update_estimates()
             elif col == 6:
                 event.variance = int(float(val))
+            elif col == 7:
+                event.delay_variance = float(val)
         except ValueError:
             pass
 
@@ -745,6 +747,7 @@ class MainWindow(QMainWindow):
 
             self.table.setItem(row, 5, QTableWidgetItem(f"{getattr(event, 'delay', 0):.2f}"))
             self.table.setItem(row, 6, QTableWidgetItem(str(getattr(event, 'variance', 0))))
+            self.table.setItem(row, 7, QTableWidgetItem(f"{getattr(event, 'delay_variance', 0):.2f}"))
 
         self.table.blockSignals(False)
         self._update_estimates()
